@@ -1,0 +1,39 @@
+# serial port of BSL programmer
+PROG_PORT = COM3 # Change COM3 to your actual COM port in Windows
+# mspdebug
+MSPDEBUG = mspdebug # Assuming mspdebug is in your system Path
+# cross compiler installation location
+# We don't need MSPDIR since the tools are in the system Path
+CC      = msp430-elf-gcc
+OBJCOPY = msp430-elf-objcopy
+SIZE    = msp430-elf-size
+# CFLAGS no longer needs the wrong MSPDIR path. The compiler will find its own includes.
+CFLAGS  = -mmcu=msp430g2755 -I"C:\ti\msp430-gcc\include" -Iinclude -Wall
+# LDFLAGS no longer needs the wrong MSPDIR path.
+LDFLAGS = -mmcu=msp430g2755 -L"C:\ti\msp430-gcc\include" -Linclude
+
+main: main.o uart.o led.o spi.o epd.o tools.o gfx.o
+
+hex: main
+	$(SIZE) $<
+	$(OBJCOPY) -O ihex $< $<.hex
+
+upload-bsl: hex
+	$(MSPDEBUG) -d $(PROG_PORT) rom-bsl --bsl-entry-sequence Dr,R,r,R,r,d "prog main"
+#	./reset_board.py -d $(PROG_PORT)
+
+upload-sbw: hex
+	$(MSPDEBUG) rf2500 "prog main"
+
+debug-bsl: 
+	$(MSPDEBUG) -d $(PROG_PORT) rom-bsl --bsl-entry-sequence Dr,R,r,R,r,d 
+	./reset_board.py -d $(PROG_PORT)
+
+clean:
+	rm -f *.o *.hex main
+
+image: ## turns downloaded ascii hex dump from spi flash into binary
+	xxd -r -ps out.cap out.bin
+
+reset:
+	./reset_board.py -d $(PROG_PORT)
